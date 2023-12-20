@@ -1,0 +1,512 @@
+---
+title: "The impact of success in Mathematics subject"
+author: 
+  - Mahammadali Rzayev
+date: 2023-12-20
+format: 
+  html:
+    code-fold: true
+    standalone: true
+    embed-resources: true
+    toc: true
+---
+
+## Introduction
+
+Task 1: Build a predictive model for the target variable G1.Math without using any of the other grade features. Moreover, your model must contain the variables paid.Math, higher, absences.Port, paid.Port but not the variables Fedu, address, Mjob.
+
+Task 2: Bin the target variable G1.Math into 4 categories in such a way that the resulting bins contain roughly equal number of cases. Use this newly created categorical variable as response for a classification model. Again do no tuse any other grade feature and build a model that contains the variables paid.Math, higher, absences.Port, paid.Port but not the variables Fedu, address, Mjob.
+
+## Data
+```{python}
+# Import libraries
+from skimpy import skim
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import numpy as np
+from keras.models import Sequential
+from keras.layers import Dense
+from keras_tuner.tuners import RandomSearch
+from keras_tuner.engine.hyperparameters import HyperParameters
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.neural_network import MLPClassifier
+import tensorflow as tf
+import warnings
+from sklearn.exceptions import ConvergenceWarning
+
+# Filter out DeprecationWarnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Filter out specific warnings by message
+warnings.filterwarnings("ignore", message=".*urllib3.*")
+warnings.filterwarnings("ignore", message=".*kerastuner.*")
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+```
+
+Dataset is about student achievement in secondary education of two Portuguese schools. The data attributes include student grades, demographic, social and school related features and it was collected by using school reports and questionnaires.
+
+
+
+```{python}
+# Import data
+data = pd.read_csv("exam_data.csv")
+
+# Getting information about the dataset
+num_columns = len(data.columns)
+num_rows = len(data)
+data_types = data.dtypes.value_counts()
+
+# Checking for NA values
+has_na = data.isna().any().any()
+
+# Create a summary string
+summary_text = f"The dataset encompasses {num_columns} columns and {num_rows} rows.\n\n"
+summary_text += f"It comprises {data_types.get('int64', 0)} integer, {data_types.get('object', 0)} string, "
+summary_text += f"and {data_types.get('float64', 0)} float data types, \ncontributing to a diverse range "
+summary_text += "of numerical and textual content.\n\n"
+
+if has_na:
+    summary_text += "The dataset contains NA (Not Available) values, consider handling them for analysis.\n"
+else:
+    summary_text += "The dataset is devoid of any NA (Not Available) values,\n ensuring completeness "
+    summary_text += "and reliability in the data for analysis.\n"
+
+# Print the summary
+print(summary_text)
+
+print("Column names:\n")
+columns = data.columns
+for i in range(0, len(columns), 6):
+    print(", ".join(columns[i:i+6]))
+```
+
+The Histogram of G1.Math scores provides a visual representation of the distribution of scores achieved by students in the initial grading period. This histogram graphically displays the frequency of different score ranges, offering insights into the distribution pattern of G1.Math scores within the dataset.
+
+```{python}
+# Plotting histogram for G1.Math
+plt.figure(figsize=(8, 6))
+plt.hist(data['G1.Math'], bins=range(1, max(data['G1.Math']) + 2), edgecolor='black')
+plt.xlabel('Scores')
+plt.ylabel('Frequency')
+plt.title('Histogram of G1.Math Scores')
+plt.xticks(range(1, max(data['G1.Math']) + 1))
+plt.grid(axis='y', alpha=0.5)
+plt.show()
+```
+
+Upon analysis, the histogram showcases a distribution that closely resembles a normal distribution or bell-shaped curve. This implies that a majority of students attained scores clustered around the central average, with fewer students achieving significantly higher or lower scores. The symmetrical nature of the distribution suggests a balanced dispersion of scores around the mean, indicating a tendency for most students to perform around a central score, while fewer perform exceptionally well or poorly.
+
+## Analysis
+
+We start our analysis with correlation matrix in order to identify the influential numerical variables affecting the first grade Math score:
+
+```{python}
+# Exclude unnecessary columns
+columns_to_exclude = ['Fedu', 'address', 'Mjob', 'G2.Math', 'G3.Math', 'G1.Port', 'G2.Port', 'G3.Port']
+data = data.drop(columns_to_exclude, axis=1)  # 'axis=1' denotes column-wise operation
+
+# Convert yes to 1, no to 0
+def convert_to_binary(value):
+    return 1 if value == 'yes' else 0
+# Columns with yes no values
+columns_yesno = ['schoolsup', 'famsup','paid.Math', 'paid.Port', 'activities', 'nursery', 'higher', 'internet', 'romantic']
+for column in columns_yesno:
+    data[column] = data[column].apply(convert_to_binary)
+# Convert famsize variable to binary
+data['famsize'] = data['famsize'].replace({'GT3': 1, 'LE3': 0})
+# Prepare numerical data
+columns_categorical = ['school', 'sex', 'Pstatus', 'Fjob', 'reason', 'guardian']
+data_num = data.drop(columns_categorical, axis=1)  
+
+# Correlation matrix
+correlation_matrix = data_num.corr()
+# Sorting correlation values for 'G1.Math' in descending order
+sorted_correlation = correlation_matrix['G1.Math'].sort_values(ascending=False)
+# Plotting the sorted correlation values of 'G1.Math' against other columns
+plt.figure(figsize=(8, 6))
+ax = sns.barplot(y=sorted_correlation.index, x=sorted_correlation.values)
+plt.title('Correlation of G1.Math with Other Columns (Sorted)')
+plt.xticks(rotation=90)  # Rotating x-axis labels for better visibility
+plt.ylabel('Columns')
+plt.xlabel('Correlation with G1.Math')
+# Adding annotations to display correlation values on each bar
+for index, value in enumerate(sorted_correlation):
+    ax.text(value, index, f'{value:.2f}', ha='right', va='center', fontsize=8, color='black')
+plt.tight_layout()
+plt.show()
+```
+ Utilizing a threshold of 0.20 and -0.20, we selected specific variables among the numeric ones that demonstrate a noteworthy correlation with the G1 Math score. These variables include failures in Mathematics, schoolsup, goout, higher, and Medu.
+
+The analysis employed ANOVA (Analysis of Variance) to investigate the relationship between the G1 Math score and various categorical variables. ANOVA is used to assess whether there are statistically significant differences between the means of two or more groups.
+
+```{python}
+# Rename the column to remove dot for usage in formula
+data = data.rename(columns={'G1.Math': 'G1Math'})
+dependent = 'G1Math'
+# Perform ANOVA for each categorical variable against the dependent variable
+for column in columns_categorical:
+    formula = f"{dependent} ~ C({column})"
+    model = ols(formula, data=data).fit()
+    anova_table = sm.stats.anova_lm(model, typ=2)
+    print(f"ANOVA for {dependent} against {column}:\n{anova_table}\n")
+# Rename the column to add dot 
+data = data.rename(columns={'G1Math': 'G1.Math'})
+```
+
+The results of ANOVA for G1 Math against different categorical variables provide insights into the potential impact of these variables on the G1 Math score. Here are the notable findings:
+
+School:
+
+- The ANOVA results for the variable 'school' indicate a p-value of 0.66648, suggesting that there's no significant difference in G1 Math scores between different schools.
+
+Sex:
+
+- For the variable 'sex', the ANOVA result shows a low p-value (0.000555), signifying a statistically significant difference in G1 Math scores between genders.
+
+Pstatus (Parental Status):
+
+- In the case of 'Pstatus', the ANOVA result reveals a p-value of 0.188729, indicating that parental cohabitation status does not significantly impact G1 Math scores.
+
+Fjob (Father's Job):
+
+- Regarding 'Fjob', the ANOVA yields a very low p-value (1.011826e-07), demonstrating a statistically significant relationship between father's occupation and G1 Math scores.
+
+Reason (Reason for Choosing School):
+
+- For the variable 'reason', the ANOVA outcome displays a p-value of 0.007696, suggesting that the reason for choosing the school may have a significant impact on G1 Math scores.
+
+Guardian:
+
+- In the case of 'guardian', the ANOVA result exhibits a p-value of 0.004564, indicating that the guardian of the student may significantly influence G1 Math scores.
+
+
+The analysis identifies 'sex', 'Fjob', 'reason', and 'guardian' as potential influential factors affecting G1 Math scores among the categorical variables. 'School' and 'Pstatus' did not show statistically significant relationships with the G1 Math scores, consequently being excluded from further consideration in the analysis.
+
+From our analysis of numerical and categorical variables we identified variables that play a pivotal role in impacting the G1 Math score. They encompass a wide array of influential factors, including engagement in additional Math and Portuguese classes, aspirations for higher education, provision of extra educational support, attendance patterns in Portuguese classes, history of past Math failures, socializing habits, maternal education levels, gender, paternal occupation, reasons for school selection, and the primary guardian figure. Each of these variables significantly contributes to comprehending the dataset's correlation with the G1 Math score, providing insights into the diverse factors potentially shaping academic performance and lifestyle choices among students. Here are more detailed value description of the variables:
+
+1. paid.Math: extra paid classes within Math subject [yes or no]
+
+2. paid.Port: extra paid classes within Portuguese subject [yes or no]
+
+3. higher: wants to take higher education [yes or no]
+
+4. schoolsup: extra educational support [yes or no]
+
+5. absences.Port: number of absences for Portuguese subject [numeric: from 0 to 93]
+
+6. failures.Math: number of past class failures for Math subject [numeric: n if 1<=n<3, else 4]
+
+7. goout: going out with friends [numeric: from 1 - very low to 5 - very high]
+
+8. Medu: mother’s education [numeric: 0 - none, 1 - primary education, 2 – 5th to 9th grade, 3 – secondary education, 4 – higher education]
+
+9. sex: student’s sex [“F” - female or “M” - male]
+
+10. Fjob: father’s job [“teacher”, “health” care related, “services”, “at_home” or “other”]
+
+11. reason: reason to choose this school [“home”, “reputation”, “course” preference or “other”]
+
+12. guardian: student’s guardian [“mother”, “father” or “other”]
+
+```{python}
+# Categorical columns only
+data = data[['sex', 'Fjob', 'reason', 'guardian', 'paid.Math', 'paid.Port']]
+
+# Numerical columns only
+data_num = data_num[['G1.Math', 'failures.Math', 'schoolsup', 'goout', 'higher', 'Medu', 'absences.Port']]
+
+# Concatenating categorical and numerical dataset along columns axis
+data = pd.concat([data_num, data], axis=1)
+
+# Categorical columns names
+categorical_cols = ['sex', 'Fjob', 'reason', 'guardian', 'paid.Math', 'paid.Port'] 
+
+# Convert categorical columns to dummy variables
+data = pd.get_dummies(data, columns=categorical_cols, drop_first=True)  # drop_first=True to avoid multicollinearity
+
+# Backup of 'data' to use for Task 2
+data_class = data.copy()
+
+# Normalize numerical columns for future modeling
+numeric_cols = ['G1.Math', 'failures.Math', 'schoolsup', 'goout', 'higher', 'Medu', 'absences.Port']
+scaler = StandardScaler()
+data[numeric_cols] = scaler.fit_transform(data[numeric_cols])
+
+# Prepare featurres and target for train test
+X = data.drop('G1.Math', axis=1)  # Features
+y = data['G1.Math']  # Target variable
+
+# Split train and test by 0.2
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+```
+
+
+### Task 1
+
+The following metrics offer an overview of the performance evaluation for three distinct machine learning models: Linear Regression, Random Forest, and Neural Network. These metrics serve as key indicators used to assess the predictive capabilities and accuracy of each model to predict first grade Math subject: Mean Squared Error, R-Squared, Mean Absolute Error. 
+
+
+#### Linear Regression:
+
+Linear Regression, a fundamental modeling technique, shows a modest performance in predicting the target variable. Its predictive accuracy, as depicted by the evaluation metrics, falls within a certain range indicating a specific level of predictive capability.
+
+```{python}
+# Linear Regression
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+
+# Display the evaluation metrics
+print(f"Linear Regression Metrics:")
+print(f"Mean Squared Error (MSE): {mse:.2f}")
+print(f"R-squared (R2): {r2:.2f}")
+print(f"Mean Absolute Error (MAE): {mae:.2f}")
+
+# Plotting the actual vs predicted values for the test set
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred)
+plt.xlabel('Actual values')
+plt.ylabel('Predicted values')
+plt.title('Actual vs Predicted values (Linear Regression - Test set)')
+# Adding a diagonal line for reference 
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+plt.tight_layout()
+plt.show()
+```
+
+
+#### Random Forest:
+
+The Random Forest model demonstrates notably improved predictive performance compared to Linear Regression. It showcases enhanced accuracy and predictive power, as evidenced by the evaluation metrics, portraying a superior capability to understand and predict patterns within the dataset. Three different parameters were experimented with to optimize the Random Forest Regressor model. After evaluation, the parameter setting of n_estimators=50 and random_state=42 was identified as the most effective configuration, providing the best performance.
+
+```{python}
+# Random Forest
+rf_model = RandomForestRegressor(n_estimators=50, random_state=42) 
+#rf_model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)  
+#rf_model = RandomForestRegressor(n_estimators=100, max_depth=15, min_samples_split=5, random_state=42)
+
+rf_model.fit(X_train, y_train)
+# Make predictions on the test set
+y_pred_rf = rf_model.predict(X_test)
+# Evaluate the Random Forest model
+mse_rf = mean_squared_error(y_test, y_pred_rf)
+r2_rf = r2_score(y_test, y_pred_rf)
+mae_rf = mean_absolute_error(y_test, y_pred_rf)
+
+print(f"Random Forest Metrics:")
+print(f"Mean Squared Error (MSE): {mse_rf:.2f}")
+print(f"R-squared (R2): {r2_rf:.2f}")
+print(f"Mean Absolute Error (MAE): {mae_rf:.2f}")
+```
+
+The analysis aimed to identify the key determinants influencing G1 Math scores using a Random Forest model. The top three influential features impacting students' academic performance in mathematics are as follows:
+
+```{python}
+# Visualize feature importances
+feature_importances = rf_model.feature_importances_
+sorted_indices = np.argsort(feature_importances)  # Sort indices in ascending order
+# Top 10 feature importances
+top_n = 10 
+top_features = X.columns[sorted_indices][:top_n]
+top_importances = feature_importances[sorted_indices][:top_n]
+# Plot
+plt.figure(figsize=(7, 6))
+plt.barh(range(top_n), top_importances, align='center')
+plt.yticks(range(top_n), top_features)
+plt.xlabel('Feature Importance')
+plt.title('Top Feature Importances')
+plt.tight_layout()
+plt.show()
+```
+
+Upon analysis, the bar plot shows that understanding the impact of maternal guardianship, the presence of extra paid math classes, and the school selection based on a 'home' preference impacts students' academic performance in mathematics.
+
+#### Neural Network:
+
+The Neural Network model, known for its ability to learn complex relationships within data, presents a performance level between Linear Regression and Random Forest. Its evaluation metrics indicate a moderate predictive capacity and a degree of understanding of underlying patterns within the dataset. Three distinct parameters were tested to optimize the neural network model's architecture. Upon evaluation, the configuration that involved increased hidden layers with 64, 32, and 16 neurons in each layer respectively, utilizing the 'relu' activation function, demonstrated superior performance. This configuration displayed enhanced predictive capabilities, making it the most effective setting among those tested.
+
+```{python}
+# Convert data to float32 explicitly
+X = X.astype('float32')
+y = y.astype('float32')
+
+# Split the data into training and testing sets (80-20 split with fixed random state)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+
+# Build and train the neural network model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(64, input_dim=X_train.shape[1], activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(16, activation='relu'),
+    tf.keras.layers.Dense(1)  # Output layer (single neuron for regression)
+])
+
+# model = tf.keras.Sequential([
+#     tf.keras.layers.Dense(128, input_dim=X_train.shape[1], activation='relu'),
+#     tf.keras.layers.Dense(64, activation='relu'),
+#     tf.keras.layers.Dense(1)  # Output layer (single neuron for regression)
+# ])
+
+# model = tf.keras.Sequential([
+#     tf.keras.layers.Dense(64, input_dim=X_train.shape[1], activation='tanh'),
+#     tf.keras.layers.Dense(32, activation='tanh'),
+#     tf.keras.layers.Dense(1)  # Output layer (single neuron for regression)
+# ])
+
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+history = model.fit(X_train, y_train, epochs=50, batch_size=20, validation_split=0.1, verbose=0)
+
+# Make predictions on the test set
+y_pred_nn = model.predict(X_test)
+
+# Evaluate the Neural Network model
+mse_nn = mean_squared_error(y_test, y_pred_nn)
+r2_nn = r2_score(y_test, y_pred_nn)
+mae_nn = mean_absolute_error(y_test, y_pred_nn)
+
+print(f"Neural Network Metrics:")
+print(f"Mean Squared Error (MSE): {mse_nn:.2f}")
+print(f"R-squared (R2): {r2_nn:.2f}")
+print(f"Mean Absolute Error (MAE): {mae_nn:.2f}")
+
+# Plot training loss
+plt.figure(figsize=(8, 6))
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Training and Validation Loss')
+plt.show()
+```
+
+In summary, the models showcase varying degrees of predictive capability. The Random Forest model stands out with notably enhanced predictive accuracy, followed by the Neural Network displaying moderate performance, while the Linear Regression model portrays a comparatively modest predictive capacity.
+
+### Task 2
+
+The solution of classification problem involved the utilization of three distinct machine learning models: Logistic Regression, Decision Tree, and Neural Network. Each model is assessed for its predictive capabilities in determining first student grades for Math subject categorized as A, B, C, and D.
+
+#### Logistic Regression Evaluation:
+
+The Logistic Regression model evaluates its performance in predicting student grades, represented by classes A, B, C, and D. It demonstrates a moderate ability to predict these grades. However, it exhibits varied precision, recall, and F1-scores across different grade categories. This model displays certain strengths and weaknesses in accurately identifying instances of each grade, indicating specific challenges in distinguishing between different grade classifications, particularly between grades B and C. Three distinct parameters were tested to optimize the neural network model's architecture. Among the configurations explored, the setup with three hidden layers, each containing 64 neurons and utilizing the 'relu' activation function with the 'adam' solver, demonstrated superior performance. This configuration, with an increased number of neurons and layers, exhibited enhanced predictive capabilities, making it the most effective setting among those tested. Overall, the model achieves a moderate accuracy, signifying its capacity to predict the correct grade classifications among the evaluated instances.
+
+```{python}
+# Divide G1.Math into grade groups as A,B,C,D using quartiles
+data_class['G1.Math_grade'] = pd.qcut(data['G1.Math'], q=4, labels=['D', 'C', 'B', 'A'])
+# Copy prepared data for Task 2
+data = data_class.copy()
+
+X = data.drop(['G1.Math', 'G1.Math_grade'], axis=1)  # Features
+y = data['G1.Math_grade']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Logistic Regression
+log_reg = LogisticRegression(max_iter=1000)
+log_reg.fit(X_train, y_train)
+
+# Decision Tree
+tree = DecisionTreeClassifier()
+tree.fit(X_train, y_train)
+
+# Neural Network (Multi-layer Perceptron)
+nn = MLPClassifier(hidden_layer_sizes=(64, 64, 64), activation='relu', solver='adam', max_iter=100)
+
+# nn = MLPClassifier(hidden_layer_sizes=(32, 16), activation='relu', solver='adam', max_iter=100)
+
+# nn = MLPClassifier(hidden_layer_sizes=(64, 32, 16), activation='relu', solver='adam', max_iter=100)
+
+# nn = MLPClassifier(hidden_layer_sizes=(128, 64, 32), activation='relu', solver='adam', max_iter=100)
+
+
+nn.fit(X_train, y_train)
+
+# function to evaluate
+def evaluate_classifiers(classifiers, X_test, y_test):
+    for name, clf in classifiers.items():
+        predictions = clf.predict(X_test)
+        print(f"\n{name} Evaluation:")
+        print(classification_report(y_test, predictions))
+        cm = confusion_matrix(y_test, predictions)
+
+classifiers = {'Logistic Regression': log_reg}
+evaluate_classifiers(classifiers, X_test, y_test)
+```
+
+
+#### Decision Tree Evaluation:
+
+The Decision Tree model excels in categorizing student grades (A, B, C, D), showcasing high precision, recall, and F1-scores across most grade categories. This model demonstrates robustness in correctly identifying instances within each grade category, leading to a notably high overall accuracy. Its superior performance highlights its capability in accurately distinguishing and categorizing student grades with precision.
+
+```{python}
+# Evaluation for Decision Tree
+classifiers = {'Decision Tree': tree}
+evaluate_classifiers(classifiers, X_test, y_test)
+```
+
+
+#### Neural Network Evaluation:
+
+The Neural Network model showcases a moderate to moderate-high performance in classifying student grades across multiple categories (A, B, C, D). It displays varying precision, recall, and F1-scores for different grades, indicating strengths in certain grade predictions and relatively lower accuracy in others. The model's overall accuracy lies within a moderate range, indicating its capacity to classify student grades but with some variability in performance across different grade categories.
+
+```{python}
+# Evaluation for Neural Network
+classifiers = {'Neural Network': nn}
+evaluate_classifiers(classifiers, X_test, y_test)
+```
+
+In summary, these models present varied performances in predicting student grades. The Decision Tree model demonstrates superior accuracy and predictive power, followed by the Neural Network showing moderate performance. The Logistic Regression model displays moderate performance with specific limitations in accurately distinguishing between certain grade categories, especially between grades B and C.
+
+The confusion matrices showcase the model's predictions against the actual classifications for the dataset. It provides a tabular representation where rows represent the true classes, and columns display the predicted classes. The matrix elements detail the counts of correct and incorrect predictions for each class, enabling a detailed assessment of the model's accuracy in distinguishing between different grade categories (A, B, C, D) based on its predictive outcomes.
+```{python}
+# Confusion matrix for 3 models
+classifiers = {'Logistic Regression': log_reg, 'Decision Tree': tree, 'Neural Network': nn}
+labels = ['D', 'C', 'B', 'A']
+for name, clf in classifiers.items():
+    predictions = clf.predict(X_test)
+    cm = confusion_matrix(y_test, predictions)
+    # Visualization of Confusion Matrix
+    plt.figure(figsize=(6, 4))
+    sns.heatmap(cm, annot=True, cmap='Blues', fmt='g',  xticklabels=labels, yticklabels=labels)
+    plt.title(f'Confusion Matrix for {name}')
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.show()
+```
+
+As a result, the Decision Tree model appears to exhibit more accurate predictions with fewer misclassifications compared to the Logistic Regression and Neural Network models.
+
+
+## Conclusion 
+
+The comprehensive analysis conducted on student achievement data from two Portuguese schools provides valuable insights into the factors influencing academic performance in Mathematics and Portuguese subjects. Through an array of machine learning models and statistical techniques, several key observations have been made, offering substantial implications for understanding and potentially improving student outcomes.
+
+The predictive modeling efforts elucidated critical determinants affecting the G1 Math scores. Noteworthy factors included engagement in additional classes, parental education levels, attendance patterns, social behaviors, and selection criteria for schools. These findings underscore the multifaceted nature of influences shaping academic success and provide a nuanced understanding of student performance.
+
+Task 1 focused on predictive modeling for G1 Math scores. Linear Regression, Random Forest, and Neural Network models were employed, each demonstrating varying predictive capabilities. While Linear Regression exhibited modest predictive accuracy, Random Forest emerged as the superior model, providing enhanced predictive power. Additionally, the Neural Network displayed moderate performance, showcasing its ability to discern underlying patterns in the dataset.
+
+Further analysis in Task 2 involved classifying student grades (A, B, C, D) using Logistic Regression, Decision Tree, and Neural Network models. The Decision Tree model outperformed the others, showcasing high accuracy in classifying student grades, followed by the Neural Network demonstrating moderate performance. However, the Logistic Regression model exhibited certain limitations in accurately differentiating between specific grade categories.
+
+The Confusion Matrices for classification models visually represented the models' predictive outcomes against actual classifications, offering a detailed assessment of their accuracy in classifying different grade categories. The Decision Tree model demonstrated superior accuracy with fewer misclassifications compared to the Logistic Regression and Neural Network models.
+
+In summary, this study highlights the complex interplay of various factors influencing academic performance. Leveraging predictive modeling techniques not only aids in understanding these influential factors but also provides a foundation for implementing targeted interventions to support student success in Mathematics and Portuguese subjects. The insights garnered from this analysis could inform educational strategies aimed at enhancing academic outcomes and fostering a conducive learning environment for students.
