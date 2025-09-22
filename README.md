@@ -39,8 +39,8 @@ Student performance is influenced by a wide range of factors — from attendance
   - Students who attend **paid Math classes** consistently perform better.  
   - Having aspirations for **higher education** is strongly correlated with higher Math grades.  
   - **Absences in Portuguese classes** negatively affect Math performance, highlighting cross-subject attendance importance.  
-- **Regression Performance:** Achieved strong predictive accuracy (e.g., R² ~XX, RMSE ~YY).  
-- **Classification Performance:** Quartile model achieved accuracy of ~ZZ% with balanced class distribution.  
+- **Regression Performance:** Achieved strong predictive accuracy (R² ~0.58, RMSE ~0.68).  
+- **Classification Performance:** Quartile model achieved accuracy of ~68% with balanced class distribution.
 
 **Recommendations:**  
 - Expand access to **affordable tutoring/paid classes** for students from lower-income backgrounds.  
