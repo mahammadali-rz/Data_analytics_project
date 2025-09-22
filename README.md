@@ -1,11 +1,11 @@
-# 📊 Student Performance Prediction (Math & Portuguese) — Data Analytics Project
+# Student Performance Prediction (Math & Portuguese) — Data Analytics Project
 
-## 📝 Executive Summary  
+## Executive Summary  
 This project analyzes secondary school student achievement in two Portuguese schools. Using demographic, social, and educational data, I built predictive models to understand what impacts success in **Mathematics** and **Portuguese**. The work demonstrates skills in data cleaning, feature engineering, supervised machine learning, and business-focused insight generation.  
 
 ---
 
-## ❓ Problem  
+## Problem  
 Student performance is influenced by a wide range of factors — from attendance and paid classes to aspirations for higher education. The challenge was to:  
 1. **Predict** the first-period Math grade (`G1.Math`) without using other grade features.  
 2. **Classify** `G1.Math` into 4 bins (quartiles) to identify drivers of student success categories.  
@@ -13,7 +13,7 @@ Student performance is influenced by a wide range of factors — from attendance
 
 ---
 
-## 🔬 Methodology  
+## Methodology  
 - **Data Preparation:** Cleaned data, encoded categorical variables, handled missing values, and enforced feature constraints.  
 - **Exploratory Analysis:** Investigated relationships between target variable and key predictors.  
 - **Modeling:**  
@@ -24,7 +24,7 @@ Student performance is influenced by a wide range of factors — from attendance
 
 ---
 
-## 🛠 Skills Demonstrated  
+## Skills Demonstrated  
 - Data wrangling with **Python (pandas, numpy)**  
 - Statistical analysis & EDA (**matplotlib, seaborn**)  
 - Predictive modeling with **scikit-learn**  
@@ -34,7 +34,7 @@ Student performance is influenced by a wide range of factors — from attendance
 
 ---
 
-## 📈 Results & Business Recommendations  
+## Results & Business Recommendations  
 - **Key Drivers:**  
   - Students who attend **paid Math classes** consistently perform better.  
   - Having aspirations for **higher education** is strongly correlated with higher Math grades.  
