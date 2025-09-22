@@ -49,7 +49,7 @@ Student performance is influenced by a wide range of factors — from attendance
 
 ---
 
-## 🚀 Next Steps  
+## Next Steps  
 - Extend analysis to **longitudinal performance trends** across subjects.  
 - Explore **causal relationships** (e.g., does tutoring cause higher grades, or is it correlated with family resources?).  
 - Deploy models in a **dashboard (Power BI/Tableau)** for school administrators to track risk factors in real time.  
